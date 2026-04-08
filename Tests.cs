@@ -278,7 +278,8 @@ namespace NUnitKonturTests
                 currCountLikes = count;
             }
 
-            Assert.That(prevCountLikes + 1 == currCountLikes, "Количество лайков не изменилось");
+            Assert.That(currCountLikes, Is.EqualTo(prevCountLikes + 1),
+                "Количество лайков не изменилось");
             // я бы еще проверил цвет лайка - но что-то не понял ничего. Он и так и так currentColor
         }
 
