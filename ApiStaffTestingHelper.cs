@@ -20,6 +20,14 @@ namespace NUnitKonturTests
             _configuration = builder.Build();
         }
 
+        public static async Task<ApiStaffTestingHelper> CreateAsync()
+        {
+            var helper = new ApiStaffTestingHelper();
+            await helper.AuthAsync();
+
+            return helper;
+        }
+
         public async Task<string> AuthAsync(string login, string password)
         {
             using var client = new HttpClient();
@@ -71,8 +79,6 @@ namespace NUnitKonturTests
 
             client.DefaultRequestHeaders.Authorization = 
                 new AuthenticationHeaderValue("Bearer", _authToken);
-
-            bool isLiked;
             
             var request = new HttpRequestMessage(HttpMethod.Patch, url)
             {
@@ -83,7 +89,7 @@ namespace NUnitKonturTests
             response.EnsureSuccessStatusCode();
 
             var json = await response.Content.ReadAsStringAsync();
-            isLiked = JsonDocument.Parse(json).RootElement.GetProperty("isLiked").GetBoolean();
+            var isLiked = JsonDocument.Parse(json).RootElement.GetProperty("isLiked").GetBoolean();
 
             if (isLiked != likeStatus)
             {

@@ -183,8 +183,12 @@ namespace NUnitKonturTests
 
             //можно и здесь остановится , а можно пойти дальше,
             //как вы и говорили - проверить какие-нибудь данные на странице найденного пользователя
-
             //Assert.That(searchEmployee, Is.Not.Null, $"Сотрудник '{employeeToSearch}' не найден");
+
+            if (searchEmployee == null)
+            {
+                Assert.Fail($"Сотрудник {employeeToSearch} не найден");
+            }
 
             searchEmployee.Click();
 
@@ -213,31 +217,25 @@ namespace NUnitKonturTests
             //    $"Элемент '{userToSearch}' не найден");
         }
 
-        /// <summary>
-        /// Подготовка перед тестом на лайк под комментарием. Убираем (или ставим) свой лайк, если он там уже есть.
-        /// Как и говорили на занятии - надо подготовить почву 
-        /// (на занятии говорили про сообщества, типа надо их удалять после тестовых созданий, 
-        /// ну вот с лайками также наверное)
-        /// </summary>
-        /// <param name="isSetLike">поставить/убрать лайк</param>
-        private async void PrepareEditLikeCommentTest(bool isSetLike)
+        private int GetLikeCount(IWebElement likeCommentBtn)
         {
-            var apiHelper = new ApiStaffTestingHelper();
-            await apiHelper.AuthAsync();
+            var likeCountSpan = likeCommentBtn.FindElements(By.CssSelector("span"))
+                .FirstOrDefault();
 
-            await apiHelper.EditLikeCommentAsync(_configuration["Comment:Guid"], isSetLike);
+            return likeCountSpan != null && int.TryParse(likeCountSpan.Text, out var c) ? c : 0;
         }
 
         //БАГ
-        //Я уверен что нарушил все патерны програмирования, но оно работает.
-        //Я бы переписал , но уже нет времени. Этот тест сожрал слишком много времени
-        [Test]
-        public void LikeCommentTest()
+        [TestCase(true, TestName = "LikeCommentTest")]
+        [TestCase(false, TestName = "UnlikeCommentTest")]
+        public async Task EditLikeCommentTest(bool isLike)
         {
-            PrepareEditLikeCommentTest(false);
+            var apiHelper = await ApiStaffTestingHelper.CreateAsync();
+            //перед началом теста, мы гарантируем то, что лайк убран (если в тесте мы его ставим) и наоборот
+            await apiHelper.EditLikeCommentAsync(_configuration["Comment:Guid"], !isLike);
 
             Authorize();
-
+            
             _driver.Navigate().GoToUrl("https://staff-testing.testkontur.ru/communities/aa580a76-1d03-4116-83fd-7327dda8eec0?tab=discussions&id=cef5d3cc-9bfd-4d98-b867-f7f96a313964");
 
             var moreCommentsBtn = _waitDriver.Until(ExpectedConditions.ElementToBeClickable(
@@ -255,34 +253,33 @@ namespace NUnitKonturTests
             var likeCommentBtn = commentItemDiv.FindElements(By.CssSelector("button"))
                 .Last();
 
-            var prevCountLikes = 0;
-
-            
-            var likeCountSpan = likeCommentBtn.FindElements(By.CssSelector("span"))
-                .FirstOrDefault();
-            // span объекта нет , если лайков 0
-            if (likeCountSpan != null && int.TryParse(likeCountSpan.Text, out var count))
-            {
-                prevCountLikes = count;
-            }
+            var prevCountLikes = GetLikeCount(likeCommentBtn);
 
             likeCommentBtn.Click();
 
-            var currCountLikes = 0;
+            //лайк обновляется после refresh страницы
+            //_driver.Navigate().Refresh();
 
-            likeCountSpan = likeCommentBtn.FindElements(By.CssSelector("span"))
-                .FirstOrDefault();
+            //moreCommentsBtn = _waitDriver.Until(ExpectedConditions.ElementToBeClickable(
+            //    By.CssSelector("[data-tid='CommentsToggle'")));
 
-            if (likeCountSpan != null && int.TryParse(likeCountSpan.Text, out count))
-            {
-                currCountLikes = count;
-            }
+            //moreCommentsBtn.Click();
 
-            Assert.That(currCountLikes, Is.EqualTo(prevCountLikes + 1),
+            //commentsDiv = _waitDriver.Until(ExpectedConditions.ElementToBeClickable(
+            //    By.CssSelector("[data-tid='CommentsList'")));
+
+            //commentItemDiv = commentsDiv.FindElement(
+            //    By.XPath($".//*[@data-tid='TextComment' and contains(text(), " +
+            //    $"'{_configuration["Comment:Guid"]}')]/ancestor::*[@data-tid='CommentItem']"));
+
+            //likeCommentBtn = commentItemDiv.FindElements(By.CssSelector("button"))
+            //    .Last();
+
+            var currCountLikes = GetLikeCount(likeCommentBtn);
+
+            Assert.That(currCountLikes, Is.EqualTo(prevCountLikes + (isLike ? 1 : -1)),
                 "Количество лайков не изменилось");
-            // я бы еще проверил цвет лайка - но что-то не понял ничего. Он и так и так currentColor
+            // я бы еще проверил цвет лайка - но что-то не понял ничего.
         }
-
-
     }
 }
